@@ -17,12 +17,16 @@ qua_es <- read.csv("RRawData/KES_Quadata.csv") %>%
     by = "kes_plot_id"
   ) %>% 
   # 去除不需要的列
-  select(-kes_plot_id, -carbon_storage, -co_removal) %>% 
-  select(!contains("value")) %>% 
+  select(- kes_plot_id, - carbon_storage, - co_removal, 
+         - compensatory_value) %>% 
   # 重命名名称超过10个字符的列
-  rename_with(~ gsub("removal", "rem", .x, fixed = TRUE)) %>% 
+  rename_with(~ gsub("removal", "rem", .x, fixed = TRUE)) %>%
+  rename_with(~ gsub("value", "v", .x, fixed = TRUE)) %>%
+  rename_with(~ gsub("carbon", "c", .x, fixed = TRUE)) %>% 
+  rename_with(~ gsub("storage", "sto", .x, fixed = TRUE)) %>% 
+  rename_with(~ gsub("runoff", "run", .x, fixed = TRUE)) %>% 
   # 重新排序
-  select(qua_id, treenum, lai:avo_runoff)
+  select(qua_id, treenum, lai:avo_run_v)
 
 # 导出数据
 write.xlsx(qua_es, "GRawData/R_Qua_es.xlsx")
