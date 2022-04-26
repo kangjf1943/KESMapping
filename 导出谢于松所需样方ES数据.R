@@ -17,8 +17,7 @@ qua_es <- read.csv("RRawData/KES_Quadata.csv") %>%
     by = "kes_plot_id"
   ) %>% 
   # 去除不需要的列
-  select(- kes_plot_id, - carbon_storage, - co_removal, 
-         - compensatory_value) %>% 
+  select(- kes_plot_id, - co_removal, - compensatory_value) %>% 
   # 重命名名称超过10个字符的列
   rename_with(~ gsub("removal", "rem", .x, fixed = TRUE)) %>%
   rename_with(~ gsub("value", "v", .x, fixed = TRUE)) %>%
