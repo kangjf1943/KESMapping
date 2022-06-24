@@ -1,5 +1,5 @@
 # 概述 ----
-# 基于谢于松导出的各类插值方法各服务结果，计算推测值的验证指标，包括平均绝对误差MAE、平均绝对百分误差MARE、平均相对误差 MRE、均方根误差RMSE和一致性指标A
+# 基于谢于松导出的各类插值方法各服务结果，计算推测值的验证指标，包括平均绝对误差MAE、平均绝对百分误差MARE、平均相对误差 MRE、均方根误差RMSE、均方根相对误差RMSRE（还是RMARE？）和一致性指标A
 
 # 包 ----
 library(shapefiles)
@@ -46,39 +46,6 @@ GetInterpError <- function(x) {
   
   # 计算各项验证指标
   for (i in names(x)) {
-    out.ls[[i]] <- interp.res$EBK$c_seq %>% 
-      mutate(
-        abs_diff = abs(predicted - measured), 
-        abs_diff_rate = abs_diff / measured, 
-        abs_diff_sqr = abs_diff ^ 2
-      ) %>% 
-      summarise(
-        mae = sum(abs_diff) / n(), 
-        mre = sum(abs_diff_rate) / n(), 
-        rmse = sqrt(sum(abs_diff_sqr) / n()), 
-        a = 1 - sum(abs_diff) / 
-          sum(abs(predicted - mean(predicted)) - 
-                abs(measured - mean(measured)))
-      ) %>% 
-      .[1, ]
-  }
-  
-  # 将结果转化为数据框
-  out.df <- Reduce(rbind, out.ls)
-  
-  return(out.df)
-}
-
-# 函数：基于某个插值方法得到的各服务的结果，计算对应的各项验证指标
-# 参数：
-# x：包含某个插值方法得到的各服务结果的列表
-GetInterpError <- function(x) {
-  # 构建空列表用于存储结果
-  out.ls <- vector("list", length = length(x))
-  names(out.ls) <- names(x)
-  
-  # 计算各项验证指标
-  for (i in names(x)) {
     out.ls[[i]] <- x[[i]] %>% 
       mutate(
         abs_diff = abs(predicted - measured), 
@@ -91,9 +58,13 @@ GetInterpError <- function(x) {
         mre = sum(abs_diff_rate) / n(), 
         rmse = sqrt(sum(abs_diff_sqr) / n()), 
         rmare = sqrt(sum(abs_diff_rate_sqr) / n()), 
-        a = 1 - sum(abs_diff) / 
+        a = 1 - 
+          sum(abs_diff) / 
           sum(abs(predicted - mean(predicted)) - 
-                abs(measured - mean(measured)))
+                abs(measured - mean(measured))), 
+        r2 = 1 -
+          sum((measured - predicted)^2) / 
+          sum((measured - mean(measured))^2)
       ) %>% 
       .[1, ] %>% 
       mutate(es = i)
@@ -106,7 +77,7 @@ GetInterpError <- function(x) {
   return(out.df)
 }
 
-# 数据
+# 数据 ----
 # 插值方法
 KInterpMeth <- c("EBK", "IDW", "OK", "RBF")
 
@@ -127,7 +98,7 @@ interp.error.lng <- interp.error
 for (i in names(interp.error.lng)) {
   interp.error.lng[[i]] <- interp.error.lng[[i]] %>% 
     mutate(interp_meth = i) %>% 
-    pivot_longer(cols = c("mae", "mre", "rmse", "rmare", "a"), 
+    pivot_longer(cols = c("mae", "mre", "rmse", "rmare", "a", "r2"), 
                  names_to = "error", values_to = "error_value")
 }
 # 计算验证指标并将其合并为一个数据框
