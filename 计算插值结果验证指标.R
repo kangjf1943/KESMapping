@@ -36,10 +36,10 @@ ReadAllDbf <- function(dir.name) {
   return(out.ls)
 }
 
-# 函数：基于某个插值方法得到的各服务的结果，计算对应的各项验证指标
+# 函数：基于某个插值方法得到的各服务的结果，计算预测值和实测值的差值等
 # 参数：
 # x：包含某个插值方法得到的各服务结果的列表
-GetInterpError <- function(x) {
+GetInterpDiff <- function(x) {
   # 构建空列表用于存储结果
   out.ls <- vector("list", length = length(x))
   names(out.ls) <- names(x)
@@ -52,19 +52,46 @@ GetInterpError <- function(x) {
         abs_diff_rate = abs_diff / measured, 
         abs_diff_sqr = abs_diff ^ 2, 
         abs_diff_rate_sqr = abs_diff_rate ^ 2
-      ) %>% 
+      ) 
+  }
+  
+  return(out.ls)
+}
+
+# 函数：去除预测值和实测值差异太大的点
+# 参数：
+# x：包含某个插值方法得到的各服务结果预测值和实测值差值的列表
+# pct.min：预测值和实测值差异最小值
+# pct.min：预测值和实测值差异最大值
+DelOutlier <- function(x, pct.min = 0.1, pct.max = 10) {
+  # 构建空列表用于存储结果
+  out.ls <- vector("list", length = length(x))
+  names(out.ls) <- names(x)
+  
+  for (i in names(x)) {
+    out.ls[[i]] <- x[[i]] %>% 
+      subset(abs_diff_rate > pct.min & abs_diff_rate < pct.max)
+  }
+  
+  return(out.ls)
+}
+
+# 函数：基于某个插值方法得到的各服务的结果，计算对应的各项验证指标
+# 参数：
+# x：包含某个插值方法得到的各服务结果预测值和实测值差值的列表
+GetInterpError <- function(x) {
+  # 构建空列表用于存储结果
+  out.ls <- vector("list", length = length(x))
+  names(out.ls) <- names(x)
+  
+  # 计算各项验证指标
+  for (i in names(x)) {
+    out.ls[[i]] <- x[[i]] %>% 
       summarise(
         mae = sum(abs_diff) / n(), 
         mre = sum(abs_diff_rate) / n(), 
         rmse = sqrt(sum(abs_diff_sqr) / n()), 
-        rmare = sqrt(sum(abs_diff_rate_sqr) / n()), 
-        a = 1 - 
-          sum(abs_diff) / 
-          sum(abs(predicted - mean(predicted)) - 
-                abs(measured - mean(measured))), 
-        r2 = 1 -
-          sum((measured - predicted)^2) / 
-          sum((measured - mean(measured))^2)
+        rmare = sqrt(sum(abs_diff_rate_sqr) / n())
       ) %>% 
       .[1, ] %>% 
       mutate(es = i)
@@ -91,14 +118,20 @@ for (i in KInterpMeth) {
     ReadAllDbf(dir.name = paste0("GProcData/InterpRes/", i))
 }
 
+# 计算预测值和实测值的差等
+interp.diff <- lapply(interp.res, GetInterpDiff)
+
+# 去除预测值和实测值差异小于0.01或者大于100的点
+interp.diff.sub <- 
+  lapply(interp.diff, DelOutlier, pct.min = 0.05, pct.max = 50)
+
 # 计算衡量准确度的验证指标
-# 空列表用于存储结果
-interp.error <- lapply(interp.res, GetInterpError)
+interp.error <- lapply(interp.diff.sub, GetInterpError)
 interp.error.lng <- interp.error
 for (i in names(interp.error.lng)) {
   interp.error.lng[[i]] <- interp.error.lng[[i]] %>% 
     mutate(interp_meth = i) %>% 
-    pivot_longer(cols = c("mae", "mre", "rmse", "rmare", "a", "r2"), 
+    pivot_longer(cols = c("mae", "mre", "rmse", "rmare"), 
                  names_to = "error", values_to = "error_value")
 }
 # 计算验证指标并将其合并为一个数据框
