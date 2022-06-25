@@ -123,7 +123,7 @@ interp.diff <- lapply(interp.res, GetInterpDiff)
 
 # 去除预测值和实测值差异小于0.01或者大于100的点
 interp.diff.sub <- 
-  lapply(interp.diff, DelOutlier, pct.min = 0.05, pct.max = 50)
+  lapply(interp.diff, DelOutlier, pct.min = 0.00, pct.max = 100000)
 
 # 计算衡量准确度的验证指标
 interp.error <- lapply(interp.diff.sub, GetInterpError)
