@@ -7,9 +7,18 @@ library(dplyr)
 # 数据 ----
 kUsdJpy <- 109
 
+# 读取i-Tree输入数据
+# 原始数据来自平林
+itree.input <- read.csv("RRawData/i_tree_input.csv") %>% 
+  rename(res_tree_id = ID, 
+         qua_id = PlotId) %>% 
+  select(qua_id, res_tree_id) %>% 
+  as_tibble()
+
 # 读取每棵树的生态系统服务计算结果
 # 原始数据来自平林的Access数据库
 indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>% 
+  as_tibble() %>% 
   rename(res_tree_id = "TreeID", 
          dbh = "DBH.(CM)", 
          lai = "LEAF.AREA.INDEX", 
@@ -27,7 +36,7 @@ indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          pm25_value = "PM25.Value.($)",          
          so2_value = "SO2.Value.($)", 
          avo_runoff = "Avoided.Runoff.(m3)") %>% 
-  left_join(itree_input, by = "res_tree_id") %>% 
+  left_join(itree.input, by = "res_tree_id") %>% 
   mutate(
     # 转化为美元
     compensatory_value = compensatory_value / kUsdJpy,  
@@ -38,41 +47,32 @@ indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
     # 计算雨水截留货币价值并转化为美元：日本雨水截留价值为719日元/立方米雨水
     avo_runoff_value = 719 * avo_runoff / kUsdJpy
   ) %>% 
-  group_by(res_tree_id) %>% 
   mutate(es_annual_value = sum(carbon_seq_value, 
                                no2_value, o3_value, pm25_value, so2_value,  
                                avo_runoff_value)) %>% 
-  ungroup() %>% 
-  select(res_tree_id, qua_id, in_tree_id, species, 
-         dbh, height, 
-         per_crow_mis, light_expo, per_shrub_below, per_impervious_below, 
-         lai, biomass, 
-         land_use, 
+  select(res_tree_id, qua_id, 
          carbon_storage, carbon_seq, 
          no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
          avo_runoff, 
          compensatory_value, 
          carbon_storage_value, carbon_seq_value, 
          no2_value, o3_value, pm25_value, so2_value,  
-         avo_runoff_value, 
-         es_annual_value)
+         avo_runoff_value)
 
 # 将个体水平数据汇总为样方水平数据
 qua.es <- indv.es %>% 
-  select(qua_id, dbh, lai, biomass, 
+  select(qua_id, 
          carbon_storage, carbon_seq, 
          no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
          avo_runoff, 
          compensatory_value, 
          carbon_storage_value, carbon_seq_value, 
          no2_value, o3_value, pm25_value, so2_value, 
-         avo_runoff_value, 
-         es_annual_value) %>% 
+         avo_runoff_value) %>% 
   group_by(qua_id) %>% 
   summarise(across(!starts_with("qua_id"), sum), 
             treenum = n()) %>% 
   ungroup()
-
 
 # 导出数据
 write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
