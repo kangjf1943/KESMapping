@@ -1,34 +1,78 @@
 # 输出GIS分析所需数据：调查样方及对应各类生态系统服务的数值
 
-# 导入所需的包
+# 包 ----
 library(openxlsx)
 library(dplyr)
 
-# 读取KES项目输出的各样方生态系统服务数据
-qua_es <- read.csv("RRawData/KES_Quadata.csv") %>% 
-  tibble() %>% 
-  rename(kes_plot_id = qua_id) %>% 
-  left_join(
-    # 将KES项目的样方编号替换成KUP项目的样方编号
-    read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>% 
-      tibble() %>% 
-      rename_with(tolower) %>% 
-      select(qua_id, kes_plot_id), 
-    by = "kes_plot_id"
+# 数据 ----
+kUsdJpy <- 109
+
+# 读取每棵树的生态系统服务计算结果
+# 原始数据来自平林的Access数据库
+indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>% 
+  rename(res_tree_id = "TreeID", 
+         dbh = "DBH.(CM)", 
+         lai = "LEAF.AREA.INDEX", 
+         carbon_storage = "CARBON.STORAGE.(KG)", 
+         carbon_seq = "GROSS.CARBON.SEQ.(KG/YR)", 
+         biomass = "BIOMASS.ADJUSTMENT", 
+         co_removal = "CO.Removal.(g)", 
+         no2_removal = "NO2.Removal.(g)", 
+         o3_removal = "O3.Removal.(g)", 
+         pm25_removal = "PM25.Removal.(g)", 
+         so2_removal = "SO2.Removal.(g)", 
+         compensatory_value = "TREE.VALUE.(Yen)",       
+         no2_value = "NO2.Value.($)", 
+         o3_value = "O3.Value.($)", 
+         pm25_value = "PM25.Value.($)",          
+         so2_value = "SO2.Value.($)", 
+         avo_runoff = "Avoided.Runoff.(m3)") %>% 
+  left_join(itree_input, by = "res_tree_id") %>% 
+  mutate(
+    # 转化为美元
+    compensatory_value = compensatory_value / kUsdJpy,  
+    # 计算碳储存货币价值并转化为美元：
+    # 日本碳服务价值为10600日元/吨碳，即10.6日元/千克碳
+    carbon_storage_value = 10.6 * carbon_storage / kUsdJpy,
+    carbon_seq_value = 10.6 * carbon_seq / kUsdJpy, 
+    # 计算雨水截留货币价值并转化为美元：日本雨水截留价值为719日元/立方米雨水
+    avo_runoff_value = 719 * avo_runoff / kUsdJpy
   ) %>% 
-  # 去除不需要的列
-  select(- kes_plot_id, - co_removal, - compensatory_value) %>% 
-  # 重命名名称超过10个字符的列
-  rename_with(~ gsub("removal", "rem", .x, fixed = TRUE)) %>%
-  rename_with(~ gsub("value", "v", .x, fixed = TRUE)) %>%
-  rename_with(~ gsub("carbon", "c", .x, fixed = TRUE)) %>% 
-  rename_with(~ gsub("storage", "sto", .x, fixed = TRUE)) %>% 
-  rename_with(~ gsub("runoff", "run", .x, fixed = TRUE)) %>% 
-  # 重新排序
-  select(qua_id, treenum, lai:avo_run_v)
+  group_by(res_tree_id) %>% 
+  mutate(es_annual_value = sum(carbon_seq_value, 
+                               no2_value, o3_value, pm25_value, so2_value,  
+                               avo_runoff_value)) %>% 
+  ungroup() %>% 
+  select(res_tree_id, qua_id, in_tree_id, species, 
+         dbh, height, 
+         per_crow_mis, light_expo, per_shrub_below, per_impervious_below, 
+         lai, biomass, 
+         land_use, 
+         carbon_storage, carbon_seq, 
+         no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
+         avo_runoff, 
+         compensatory_value, 
+         carbon_storage_value, carbon_seq_value, 
+         no2_value, o3_value, pm25_value, so2_value,  
+         avo_runoff_value, 
+         es_annual_value)
+
+# 将个体水平数据汇总为样方水平数据
+qua.es <- indv.es %>% 
+  select(qua_id, dbh, lai, biomass, 
+         carbon_storage, carbon_seq, 
+         no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
+         avo_runoff, 
+         compensatory_value, 
+         carbon_storage_value, carbon_seq_value, 
+         no2_value, o3_value, pm25_value, so2_value, 
+         avo_runoff_value, 
+         es_annual_value) %>% 
+  group_by(qua_id) %>% 
+  summarise(across(!starts_with("qua_id"), sum), 
+            treenum = n()) %>% 
+  ungroup()
+
 
 # 导出数据
-write.xlsx(qua_es, "GRawData/R_Qua_es.xlsx")
-
-# 在GIS中，将该数据和样方GIS数据对应起来，筛选掉未包含在内的样方GIS点数据
-
+write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
