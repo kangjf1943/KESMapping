@@ -6,6 +6,12 @@ library(dplyr)
 
 # 数据 ----
 kUsdJpy <- 109
+kES <- 
+  c("carbon_storage", "carbon_seq", 
+    "no2_removal", "o3_removal", "pm25_removal", "so2_removal", "avo_runoff")
+kESV <- 
+  c("carbon_storage_value", "carbon_seq_value", 
+    "no2_value", "o3_value", "pm25_value", "so2_value", "avo_runoff_value")
 
 # 读取i-Tree输入数据
 # 原始数据来自平林
@@ -59,6 +65,7 @@ indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          no2_value, o3_value, pm25_value, so2_value,  
          avo_runoff_value)
 
+##. 汇总计算样方水平服务量 ----
 # 将个体水平数据汇总为样方水平数据
 qua.es <- indv.es %>% 
   select(qua_id, 
@@ -76,3 +83,22 @@ qua.es <- indv.es %>%
 
 # 导出数据
 write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
+
+##. 各项服务单价 ----
+# 基于样方生态系统服务结果计算各项服务单价
+price <- vector("numeric", length = length(kES))
+
+for (i in 1:length(kES)) {
+  price[i] <- (quadata[[kESV[i]]] / quadata[[kES[i]]]) %>% 
+    mean()
+}
+
+price <- data.frame(
+  service = kES, 
+  price = price, 
+  # 各服务单价对应单位
+  unit = c("美元/千克碳", "美元/千克碳", 
+           "美元/克", "美元/克", "美元/克", "美元/克", "美元/立方米雨水")
+)
+
+write.xlsx(price, "RProcData/各项服务单价.xlsx")
