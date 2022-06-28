@@ -88,11 +88,13 @@ write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
 # 基于样方生态系统服务结果计算各项服务单价
 price <- vector("numeric", length = length(kES))
 
+# 各项单价为所有样方对应服务货币量和物理量之商的平均值
 for (i in 1:length(kES)) {
   price[i] <- (quadata[[kESV[i]]] / quadata[[kES[i]]]) %>% 
     mean()
 }
 
+# 转换成数据框并输出
 price <- data.frame(
   service = kES, 
   price = price, 
@@ -100,5 +102,4 @@ price <- data.frame(
   unit = c("美元/千克碳", "美元/千克碳", 
            "美元/克", "美元/克", "美元/克", "美元/克", "美元/立方米雨水")
 )
-
 write.xlsx(price, "RProcData/各项服务单价.xlsx")
