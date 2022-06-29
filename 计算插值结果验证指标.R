@@ -104,6 +104,47 @@ GetInterpError <- function(x) {
   return(out.df)
 }
 
+# 计算预测值和实测值的相关系数
+# 参数：
+# x：包含某个插值方法得到的各服务结果的列表
+GetCor <- function(x) {
+  # 构建空列表用于存储结果
+  out.ls <- vector("list", length = length(x))
+  names(out.ls) <- names(x)
+  
+  
+  for (i in names(x)) {
+    # 提取用于统计分析的自变量和因变量
+    var.indep <- x[[i]]$measured
+    var.dep <- x[[i]]$predicted
+    
+    # 拟合线性模型
+    lm.res <- lm(var.dep ~ var.indep) %>% summary()
+    
+    # 获得皮尔森系数结果
+    cor.res <- cor.test(var.dep, var.indep)
+    
+    # 构建输出结果
+    out.ls[[i]] <- data.frame(
+      # 生态系统服务名称
+      es = i, 
+      # 线性模型的决定系数
+      r2 = lm.res$r.squared, 
+      # 线性模型的p值
+      lm_p = data.frame(lm.res$coefficients)$Pr...t..[2], 
+      # 皮尔森相关系数
+      cor = cor.res$estimate, 
+      # 皮尔森相关分析结果
+      cor_p = cor.res$p.value
+    )
+    # 去除行名
+    rownames(out.ls[[i]]) <- NULL
+  }
+  # 将结果合成为一个数据框
+  out.df <- Reduce(rbind, out.ls)
+  return(out.df)
+}
+
 # 数据 ----
 # 插值方法
 KInterpMeth <- c("EBK", "IDW", "OK", "RBF")
@@ -118,6 +159,7 @@ for (i in KInterpMeth) {
     ReadAllDbf(dir.name = paste0("GProcData/InterpRes/", i))
 }
 
+# 分析 ----
 # 计算预测值和实测值的差等
 interp.diff <- lapply(interp.res, GetInterpDiff)
 
@@ -143,6 +185,10 @@ interp.error.lng <- Reduce(rbind, interp.error.lng) %>%
     es == "pm2" ~ "pm25", 
     TRUE ~ es
   ))
+
+# 计算各插值方法预测值和实测值的拟合程度
+interp.cor <- lapply(interp.res, GetCor)
+write.xlsx(interp.cor, "RProcData/各插值各服务预测值和实测值相关性结果.xlsx")
 
 # 可视化 ----
 png("RProcData/各插值各服务各验证指标对比.png", 
