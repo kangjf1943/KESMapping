@@ -121,7 +121,7 @@ for (i in KInterpMeth) {
 # 计算预测值和实测值的差等
 interp.diff <- lapply(interp.res, GetInterpDiff)
 
-# 去除预测值和实测值差异小于0.01或者大于100的点
+# 不去除异常值
 interp.diff.sub <- 
   lapply(interp.diff, DelOutlier, pct.min = 0.00, pct.max = 100000)
 
