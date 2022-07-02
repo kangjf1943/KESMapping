@@ -1,8 +1,55 @@
 # 输出GIS分析所需数据：调查样方及对应各类生态系统服务的数值
 
 # 包 ----
+library(vegan)
 library(openxlsx)
 library(dplyr)
+
+# 函数 ----
+# 函数：基于每木数据获得群落宽数据
+# 输出：群落款数据，列为物种名，每行为每棵树木
+# 参数：
+# x：调查所得每木数据
+# nq_colgroup：汇总所根据的分组
+GetComm <- function(x, nq_colgroup) {
+  x %>% 
+    mutate(stem = 1) %>%  # 每棵树的丰度即为1
+    select({{nq_colgroup}}, stem, species) %>%
+    pivot_wider(names_from = species, values_from = stem,
+                values_fn = sum, values_fill = 0) %>% 
+    return()
+}
+
+# 函数：基于个体数据计算样地多样性
+# 参数：
+# x：调查所得个体数据
+# x_comm：群落数据
+# nq_colgroup：汇总所根据的分组
+GetDiv <- function(x, x_comm, nq_colgroup) {
+  # 内置函数：分组汇总统计各项属性
+  funin_attrcalc <- function(coltar, tarvalue) {
+    x_sub <- x
+    x_sub["tarornot"] <- x_sub[coltar] == tarvalue
+    x_sub <- x_sub %>% group_by({{nq_colgroup}}) %>% 
+      summarise(
+        perc = sum(1 * tarornot) / sum(1)) %>%
+      ungroup() %>% 
+      select({{nq_colgroup}}, perc)
+    names(x_sub)[2] <- paste0("perc_", tarvalue)
+    return(x_sub)
+  }
+  
+  output <- x_comm %>%
+    mutate(abundance = rowSums(.[3:ncol(.)]),
+           richness = apply(.[2:ncol(.)]>0, 1, sum),
+           shannon = diversity(.[2:ncol(.)], index = "shannon"),
+           simpson = diversity(.[2:ncol(.)], index = "simpson"),
+           evenness = shannon / log(richness)) %>%
+    select({{nq_colgroup}}, 
+           abundance, richness, shannon, simpson, evenness)
+  
+  return(output)
+}
 
 # 数据 ----
 kUsdJpy <- 109
@@ -13,7 +60,7 @@ kESV <-
   c("carbon_storage_value", "carbon_seq_value", 
     "no2_value", "o3_value", "pm25_value", "so2_value", "avo_runoff_value")
 
-# 读取i-Tree输入数据
+#. i-Tree输入数据 ----
 # 原始数据来自平林
 itree.input <- read.csv("RRawData/i_tree_input.csv") %>% 
   rename(res_tree_id = ID, 
@@ -21,11 +68,21 @@ itree.input <- read.csv("RRawData/i_tree_input.csv") %>%
   select(qua_id, res_tree_id) %>% 
   as_tibble()
 
-# 读取每棵树的生态系统服务计算结果
+#. 物种对照名单 ----
+spe.ls <- read.csv("RRawData/I_tree_species_list.csv") %>% 
+  as_tibble() %>% 
+  rename_with(tolower) %>% 
+  rename(spe_code = "sppcode", 
+         species_name = "species.name") %>% 
+  mutate(species = paste0(genus, " ", species_name)) %>% 
+  select(spe_code, species)
+
+#. 每木数据 ----
 # 原始数据来自平林的Access数据库
-indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>% 
+indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>% 
   as_tibble() %>% 
   rename(res_tree_id = "TreeID", 
+         spe_code = "SpCode", 
          dbh = "DBH.(CM)", 
          lai = "LEAF.AREA.INDEX", 
          carbon_storage = "CARBON.STORAGE.(KG)", 
@@ -53,10 +110,9 @@ indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
     # 计算雨水截留货币价值并转化为美元：日本雨水截留价值为719日元/立方米雨水
     avo_runoff_value = 719 * avo_runoff / kUsdJpy
   ) %>% 
-  mutate(es_annual_value = sum(carbon_seq_value, 
-                               no2_value, o3_value, pm25_value, so2_value,  
-                               avo_runoff_value)) %>% 
-  select(res_tree_id, qua_id, 
+  left_join(spe.ls, by = "spe_code") %>% 
+  select(res_tree_id, qua_id, species, 
+         lai, dbh, biomass, 
          carbon_storage, carbon_seq, 
          no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
          avo_runoff, 
@@ -65,9 +121,13 @@ indv.es <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          no2_value, o3_value, pm25_value, so2_value,  
          avo_runoff_value)
 
-##. 汇总计算样方水平服务量 ----
+##. 群落和多样性 ----
+qua.comm <- GetComm(indv.data, qua_id)
+qua.div <- GetDiv(indv.data, qua.comm, qua_id)
+
+##. 样方水平服务量 ----
 # 将个体水平数据汇总为样方水平数据
-qua.es <- indv.es %>% 
+qua.es <- indv.data %>% 
   select(qua_id, 
          carbon_storage, carbon_seq, 
          no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
@@ -80,9 +140,6 @@ qua.es <- indv.es %>%
   summarise(across(!starts_with("qua_id"), sum), 
             treenum = n()) %>% 
   ungroup()
-
-# 导出数据
-write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
 
 ##. 各项服务单价 ----
 # 基于样方生态系统服务结果计算各项服务单价
@@ -102,4 +159,6 @@ price <- data.frame(
   unit = c("美元/千克碳", "美元/千克碳", 
            "美元/克", "美元/克", "美元/克", "美元/克", "美元/立方米雨水")
 )
+
+write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
 write.xlsx(price, "RProcData/各项服务单价.xlsx")
