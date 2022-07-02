@@ -164,9 +164,9 @@ for (i in KInterpMeth) {
 # 计算预测值和实测值的差等
 interp.diff <- lapply(interp.res, GetInterpDiff)
 
-# 不去除异常值
+# 去除异常值
 interp.diff.sub <- 
-  lapply(interp.diff, DelOutlier, pct.min = 0.00, pct.max = 100000)
+  lapply(interp.diff, DelOutlier, pct.min = 1/10, pct.max = 10)
 
 # 计算衡量准确度的验证指标
 interp.error <- lapply(interp.diff.sub, GetInterpError)
@@ -190,6 +190,10 @@ interp.error.lng <- Reduce(rbind, interp.error.lng) %>%
 # 计算各插值方法预测值和实测值的拟合程度
 interp.cor <- lapply(interp.res, GetCor)
 write.xlsx(interp.cor, "RProcData/各插值各服务预测值和实测值相关性结果.xlsx")
+# 计算去除和实测值差异特变大的数据点后的拟合程度
+interp.cor <- lapply(interp.diff.sub, GetCor)
+write.xlsx(interp.cor, 
+           "RProcData/各插值各服务预测值和实测值相关性结果_去除异常值.xlsx")
 
 # 可视化 ----
 png("RProcData/各插值各服务各验证指标对比.png", 
