@@ -256,6 +256,59 @@ Reduce("/", density.plt$EBK) |
   Reduce("/", density.plt$RBF)
 dev.off()
 
+#. 可视化拟合效果 ----
+# 原始数据作图
+point.plt <- vector("list", length = length(KInterpMeth))
+names(point.plt) <- KInterpMeth
+
+for (i in KInterpMeth) {
+  # 构建次级列表
+  point.plt[[i]] <- vector("list", length = length(interp.res[[i]]))
+  names(point.plt[[i]]) <- names(interp.res[[i]])
+  
+  # 存储作图数据
+  for (j in names(interp.res[[i]])) {
+    point.plt[[i]][[j]] <- 
+      ggplot(interp.res[[i]][[j]]) + 
+      geom_point(aes(measured, predicted), alpha = 0.5) + 
+      labs(x = j, y = "")
+  }
+}
+
+png("RProcData/各插值各服务预测值和实测值原始数据拟合结果.png", 
+    width = 2500, height = 3000, res = 300)
+Reduce("/", point.plt$EBK) | 
+  Reduce("/", point.plt$IDW) | 
+  Reduce("/", point.plt$OK) | 
+  Reduce("/", point.plt$RBF)
+dev.off()
+
+# 数据变换后作图
+point.plt <- vector("list", length = length(KInterpMeth))
+names(point.plt) <- KInterpMeth
+
+for (i in KInterpMeth) {
+  # 构建次级列表
+  point.plt[[i]] <- vector("list", length = length(interp.res[[i]]))
+  names(point.plt[[i]]) <- names(interp.res[[i]])
+  
+  # 存储作图数据
+  for (j in names(interp.res[[i]])) {
+    point.plt[[i]][[j]] <- 
+      ggplot(interp.res[[i]][[j]]) + 
+      geom_point(aes(log(measured), log(predicted)), alpha = 0.5) + 
+      labs(x = j, y = "")
+  }
+}
+
+png("RProcData/各插值各服务预测值和实测值log变换拟合结果.png", 
+    width = 2500, height = 3000, res = 300)
+Reduce("/", point.plt$EBK) | 
+  Reduce("/", point.plt$IDW) | 
+  Reduce("/", point.plt$OK) | 
+  Reduce("/", point.plt$RBF)
+dev.off()
+
 # 结果导出 ----
 interp.error.lng %>% 
   pivot_wider(id_cols = c("es", "interp_meth"), 
