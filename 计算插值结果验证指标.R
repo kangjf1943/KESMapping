@@ -7,6 +7,7 @@ library(openxlsx)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(patchwork)
 library(ggh4x)
 
 # 函数 ----
@@ -198,6 +199,61 @@ ggplot(interp.error.lng) + geom_col(aes(interp_meth, error_value)) +
               switch = "y") + 
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90))
+dev.off()
+
+#. 预测值和实测值的分布差异 ----
+# 结果原始数据作图
+density.plt <- vector("list", length = length(KInterpMeth))
+names(density.plt) <- KInterpMeth
+
+for (i in KInterpMeth) {
+  # 构建次级列表
+  density.plt[[i]] <- vector("list", length = length(interp.res[[i]]))
+  names(density.plt[[i]]) <- names(interp.res[[i]])
+  
+  # 存储作图数据
+  for (j in names(interp.res[[i]])) {
+    density.plt[[i]][[j]] <- 
+      ggplot(interp.res[[i]][[j]]) + 
+      geom_density(aes(measured), color = "darkgreen") + 
+      geom_density(aes(predicted), color = "red") + 
+      labs(y = "Density", x = j)
+  }
+}
+
+png("RProcData/各插值各服务预测值和实测值原始数据分布对比.png", 
+    width = 2500, height = 3000, res = 300)
+Reduce("/", density.plt$EBK) | 
+  Reduce("/", density.plt$IDW) | 
+  Reduce("/", density.plt$OK) | 
+  Reduce("/", density.plt$RBF)
+dev.off()
+
+# 结果数据变换后作图
+density.plt <- vector("list", length = length(KInterpMeth))
+names(density.plt) <- KInterpMeth
+
+for (i in KInterpMeth) {
+  # 构建次级列表
+  density.plt[[i]] <- vector("list", length = length(interp.res[[i]]))
+  names(density.plt[[i]]) <- names(interp.res[[i]])
+  
+  # 存储作图数据
+  for (j in names(interp.res[[i]])) {
+    density.plt[[i]][[j]] <- 
+      ggplot(interp.res[[i]][[j]]) + 
+      geom_density(aes(log(measured)), color = "darkgreen") + 
+      geom_density(aes(log(predicted)), color = "red") + 
+      labs(y = "Density", x = j)
+  }
+}
+
+png("RProcData/各插值各服务预测值和实测值log变换分布对比.png", 
+    width = 2500, height = 3000, res = 300)
+Reduce("/", density.plt$EBK) | 
+  Reduce("/", density.plt$IDW) | 
+  Reduce("/", density.plt$OK) | 
+  Reduce("/", density.plt$RBF)
 dev.off()
 
 # 结果导出 ----
