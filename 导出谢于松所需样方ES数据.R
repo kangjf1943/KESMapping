@@ -1,9 +1,12 @@
+# 概述 ----
 # 输出GIS分析所需数据：调查样方及对应各类生态系统服务的数值
+# 计算各样地多样性指数
 
 # 包 ----
-library(vegan)
 library(openxlsx)
 library(dplyr)
+library(tidyr)
+library(vegan)
 
 # 函数 ----
 # 函数：基于每木数据获得群落宽数据
@@ -60,12 +63,20 @@ kESV <-
   c("carbon_storage_value", "carbon_seq_value", 
     "no2_value", "o3_value", "pm25_value", "so2_value", "avo_runoff_value")
 
+#. 样地信息 ----
+qua.info <- read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>% 
+  rename_with(tolower) %>% 
+  rename(kes_qua_id = kes_plot_id, ward = ward_en) %>% 
+  select(qua_id, kes_qua_id, landuse_class, ward) %>% 
+  rename(landuse = landuse_class) %>% 
+  tibble()
+
 #. i-Tree输入数据 ----
 # 原始数据来自平林
 itree.input <- read.csv("RRawData/i_tree_input.csv") %>% 
   rename(res_tree_id = ID, 
-         qua_id = PlotId) %>% 
-  select(qua_id, res_tree_id) %>% 
+         kes_qua_id = PlotId) %>% 
+  select(kes_qua_id, res_tree_id) %>% 
   as_tibble()
 
 #. 物种对照名单 ----
@@ -111,6 +122,7 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
     avo_runoff_value = 719 * avo_runoff / kUsdJpy
   ) %>% 
   left_join(spe.ls, by = "spe_code") %>% 
+  left_join(qua.info, by = "kes_qua_id") %>% 
   select(res_tree_id, qua_id, species, 
          lai, dbh, biomass, 
          carbon_storage, carbon_seq, 
@@ -123,7 +135,9 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
 
 ##. 群落和多样性 ----
 qua.comm <- GetComm(indv.data, qua_id)
-qua.div <- GetDiv(indv.data, qua.comm, qua_id)
+qua.div <- GetDiv(indv.data, qua.comm, qua_id) %>% 
+  # 加入土地利用数据
+  left_join(qua.info, by = "qua_id")
 
 ##. 样方水平服务量 ----
 # 将个体水平数据汇总为样方水平数据
@@ -141,13 +155,13 @@ qua.es <- indv.data %>%
             treenum = n()) %>% 
   ungroup()
 
-##. 各项服务单价 ----
+#. 各项服务单价 ----
 # 基于样方生态系统服务结果计算各项服务单价
 price <- vector("numeric", length = length(kES))
 
 # 各项单价为所有样方对应服务货币量和物理量之商的平均值
 for (i in 1:length(kES)) {
-  price[i] <- (quadata[[kESV[i]]] / quadata[[kES[i]]]) %>% 
+  price[i] <- (qua.es[[kESV[i]]] / qua.es[[kES[i]]]) %>% 
     mean()
 }
 
@@ -157,8 +171,11 @@ price <- data.frame(
   price = price, 
   # 各服务单价对应单位
   unit = c("美元/千克碳", "美元/千克碳", 
-           "美元/克", "美元/克", "美元/克", "美元/克", "美元/立方米雨水")
+           "美元/克", "美元/克", "美元/克", "美元/克", 
+           "美元/立方米雨水")
 )
 
+# 导出 ----
 write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
 write.xlsx(price, "RProcData/各项服务单价.xlsx")
+write.xlsx(qua.div, "RProcData/各样地乔木多样性.xlsx")
