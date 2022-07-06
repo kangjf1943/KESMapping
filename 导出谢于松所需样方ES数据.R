@@ -175,6 +175,23 @@ price <- data.frame(
            "美元/立方米雨水")
 )
 
+# 分析 ----
+# 各样地多样性和ES关系
+qua.div.es <- qua.div %>% 
+  left_join(qua.es, by = "qua_id")
+
+# 查看多样性和各项ES之间的关系
+qua.div.es.cor <- 
+  psych::corr.test(
+    select(qua.div.es, abundance, richness, shannon, all_of(kES))
+  )
+png("RProcData/样地水平多样性和ES之间的相关性.png", 
+    width = 2000, height = 2000, res = 300)
+corrplot::corrplot(
+  corr = qua.div.es.cor$r, method = "number", p.mat = qua.div.es.cor$p
+)
+dev.off()
+
 # 导出 ----
 write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
 write.xlsx(price, "RProcData/各项服务单价.xlsx")
