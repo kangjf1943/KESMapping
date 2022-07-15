@@ -57,6 +57,7 @@ GetDiv <- function(x, x_comm, nq_colgroup) {
 }
 
 # 数据 ----
+#. 常数 ----
 # 美元和日元的汇率：取2019年平均汇率
 kUsdJpy <- 109
 
@@ -99,7 +100,15 @@ spe.ls <- read.csv("RRawData/I_tree_species_list.csv") %>%
   rename(spe_code = "sppcode", 
          species_name = "species.name") %>% 
   mutate(species = paste0(genus, " ", species_name)) %>% 
-  select(spe_code, species)
+  # 去除重复的条目
+  unique() %>% 
+  # 加入所属科属数据
+  left_join(read.csv("RRawData/Plant_info.csv") %>% 
+              rename_with(tolower) %>% 
+              select(genus, family) %>% 
+              unique(), 
+            by = "genus") %>% 
+  select(spe_code, species, genus, family)
 
 #. 每木数据 ----
 # 原始数据来自平林的Access数据库
@@ -136,7 +145,7 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
   ) %>% 
   left_join(spe.ls, by = "spe_code") %>% 
   left_join(qua.info, by = "kes_qua_id") %>% 
-  select(res_tree_id, qua_id, species, 
+  select(res_tree_id, qua_id, species, genus, family, 
          lai, dbh, biomass, 
          carbon_storage, carbon_seq, 
          no2_removal, o3_removal, pm25_removal, so2_removal, co_removal, 
@@ -146,13 +155,13 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          no2_value, o3_value, pm25_value, so2_value,  
          avo_runoff_value)
 
-##. 群落和多样性 ----
+#. 群落和多样性 ----
 qua.comm <- GetComm(indv.data, qua_id)
 qua.div <- GetDiv(indv.data, qua.comm, qua_id) %>% 
   # 加入土地利用数据
   left_join(qua.info, by = "qua_id")
 
-##. 样方水平服务量 ----
+#. 样方水平服务量 ----
 # 将个体水平数据汇总为样方水平数据
 qua.es <- indv.data %>% 
   select(qua_id, 
@@ -189,6 +198,18 @@ price <- data.frame(
 )
 
 # 分析 ----
+#. 统计描述 ----
+# 科属种数量
+cat("\n", "total species:", length(unique(indv.data$species)), "\n", 
+    "total genera:", length(unique(indv.data$genus)), "\n", 
+    "total families:", length(unique(indv.data$family)), "\n", "\n")
+
+# 丰度占比较大的科
+indv.data %>% 
+  group_by(family) %>% 
+  summarise(num_tree = n(), prop = n()/nrow(indv.data)) %>% 
+  arrange(desc(prop))
+
 #. 样地多样性~土地利用类型 ----
 png("RProcData/不同土地利用下的样方多样性指数.png", 
     width = 1200, height = 2000, res = 300)
@@ -200,24 +221,29 @@ qua.div %>%
   ggplot() + 
   geom_boxplot(aes(landuse, index_value)) + 
   labs(x = "Land use type", y = "Quadrat biodiversity index") + 
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.3))) +
   theme_bw() + 
   facet_wrap(.~ index, ncol = 1, scales = "free_y", 
              labeller = labeller(
                index = c(richness = "Richness", 
                          shannon = "Shannon", 
                          simpson = "Simpson", 
-                         evenness = "Evenness")))
+                         evenness = "Evenness"))) + 
+  geom_text(data = GetP(qua.div), aes(x =Inf, y = Inf, label = label), 
+            size=3.5, hjust = 1.05, vjust = 1.5)
 dev.off()
 
-kruskal.test(qua.div$richness ~ qua.div$landuse)
-dunn.test(x = qua.div$richness, g = qua.div$landuse)
-dunn.test(x = qua.div$shannon, g = qua.div$landuse)
+# 统计分析
+for (i in kIndex) {
+  cat("\n")
+  print(i)
+  dunn.test(x = qua.div[[i]], g = qua.div$landuse)
+}
 
 # 各样地多样性和ES关系
 qua.div.es <- qua.div %>% 
   left_join(qua.es, by = "qua_id")
 
-# 查看多样性和各项ES之间的关系
 qua.div.es.cor <- 
   psych::corr.test(
     select(qua.div.es, abundance, richness, shannon, all_of(kES))
