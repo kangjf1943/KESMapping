@@ -6,7 +6,9 @@
 library(openxlsx)
 library(dplyr)
 library(tidyr)
+library(ggplot2)
 library(vegan)
+library(dunn.test)
 
 # 函数 ----
 # 函数：基于每木数据获得群落宽数据
@@ -55,13 +57,24 @@ GetDiv <- function(x, x_comm, nq_colgroup) {
 }
 
 # 数据 ----
+# 美元和日元的汇率：取2019年平均汇率
 kUsdJpy <- 109
+
+# 生态系统服务项目
 kES <- 
   c("carbon_storage", "carbon_seq", 
     "no2_removal", "o3_removal", "pm25_removal", "so2_removal", "avo_runoff")
 kESV <- 
   c("carbon_storage_value", "carbon_seq_value", 
     "no2_value", "o3_value", "pm25_value", "so2_value", "avo_runoff_value")
+
+# 土地利用类型
+kLanduse <- 
+  c("R-low", "R-high", "R-other", "Ind", "Com-neigh", "Com")
+
+# 多样性指数
+kIndex <- 
+  c("richness", "shannon", "simpson", "evenness")
 
 #. 样地信息 ----
 qua.info <- read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>% 
@@ -176,6 +189,30 @@ price <- data.frame(
 )
 
 # 分析 ----
+#. 样地多样性~土地利用类型 ----
+png("RProcData/不同土地利用下的样方多样性指数.png", 
+    width = 1200, height = 2000, res = 300)
+qua.div %>% 
+  pivot_longer(cols = c("richness", "shannon", "simpson", "evenness"), 
+               names_to = "index", values_to = "index_value") %>% 
+  mutate(landuse = factor(landuse, levels = kLanduse), 
+         index = factor(index, levels = kIndex)) %>% 
+  ggplot() + 
+  geom_boxplot(aes(landuse, index_value)) + 
+  labs(x = "Land use type", y = "Quadrat biodiversity index") + 
+  theme_bw() + 
+  facet_wrap(.~ index, ncol = 1, scales = "free_y", 
+             labeller = labeller(
+               index = c(richness = "Richness", 
+                         shannon = "Shannon", 
+                         simpson = "Simpson", 
+                         evenness = "Evenness")))
+dev.off()
+
+kruskal.test(qua.div$richness ~ qua.div$landuse)
+dunn.test(x = qua.div$richness, g = qua.div$landuse)
+dunn.test(x = qua.div$shannon, g = qua.div$landuse)
+
 # 各样地多样性和ES关系
 qua.div.es <- qua.div %>% 
   left_join(qua.es, by = "qua_id")
@@ -187,9 +224,9 @@ qua.div.es.cor <-
   )
 png("RProcData/样地水平多样性和ES之间的相关性.png", 
     width = 2000, height = 2000, res = 300)
-corrplot::corrplot(
+(corrplot::corrplot(
   corr = qua.div.es.cor$r, method = "number", p.mat = qua.div.es.cor$p
-)
+))
 dev.off()
 
 # 导出 ----
