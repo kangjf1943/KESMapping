@@ -18,7 +18,7 @@ ggplot() +
   geom_point(aes(infra$grid_code, esv$grid_code), alpha = 0.3) + 
   geom_smooth(aes(infra$grid_code, esv$grid_code), 
               method = "lm", color = "red") + 
-  labs(x = "Public service facility density", y = "ESV")
+  labs(x = "Public service facility density", y = "ESV (dollar/ha)")
 # 统计结果
 cor.test(infra$grid_code, esv$grid_code)
 
