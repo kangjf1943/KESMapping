@@ -252,7 +252,7 @@ indv.data %>%
   ggplot() + 
   geom_bar(aes(family, prop), stat = "identity")
 
-#. Top species ----
+## Top species ----
 # top species of the whole city
 tree.data %>% group_by(species) %>% 
   summarise(n = n()) %>% 
