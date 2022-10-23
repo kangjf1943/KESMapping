@@ -72,7 +72,7 @@ kESV <-
 
 # land use type
 kLanduse <- 
-  c("R-low", "R-high", "R-other", "Ind", "Com-neigh", "Com")
+  c("ResLow", "ResHigh", "ResOther", "Ind", "Com", "ComNeigh")
 
 # biodiversity indexes
 kIndex <- 
