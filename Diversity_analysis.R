@@ -72,7 +72,7 @@ kESV <-
 
 # land use type
 kLanduse <- 
-  c("ResLow", "ResHigh", "ResOther", "Ind", "Com", "ComNeigh")
+  c("ResLow", "ResHigh", "ResOther", "Ind", "Com", "ComNbr")
 
 # biodiversity indexes
 kIndex <- 
@@ -86,13 +86,13 @@ qua.info <- read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>%
   rename(landuse = landuse_class) %>% 
   tibble() %>% 
   # change names of land use column
-  mutate(land_use = case_when(
-    land_use == "Com" ~ "Com", 
-    land_use == "Com neigh" ~ "ComNbr", 
-    land_use == "Ind" ~ "Ind", 
-    land_use == "R high" ~ "ResHigh", 
-    land_use == "R low" ~ "ResLow", 
-    land_use == "R resi" ~ "ResOther", 
+  mutate(landuse = case_when(
+    landuse == "Com" ~ "Com", 
+    landuse == "Com-neigh" ~ "ComNbr", 
+    landuse == "Ind" ~ "Ind", 
+    landuse == "R-high" ~ "ResHigh", 
+    landuse == "R-low" ~ "ResLow", 
+    landuse == "R-other" ~ "ResOther", 
   ))
 
 # investigation data 
@@ -282,6 +282,12 @@ for (i in 1:6) {
 }
 Reduce("|", temp.plots[1:3]) / 
   Reduce("|", temp.plots[4:6])
+# export the figure
+png("RProcData/Top species of each land use.png", 
+    width = 3000, height = 1200, res = 300)
+Reduce("|", temp.plots[1:3]) / 
+  Reduce("|", temp.plots[4:6])
+dev.off()
 
 ## Quadrat biodiversity ~ land use ----
 png("RProcData/Quadrat_biodiversity_indexes_of_land_use_types.png", 
