@@ -1,8 +1,8 @@
-# 概述 ----
-# 输出GIS分析所需数据：调查样方及对应各类生态系统服务的数值
-# 计算各样地多样性指数
+# Statement ----
+# calculate data for GIS analysis: ecosystem services for each quadrat
+# calculate biodiversity indexes of each quadrat
 
-# 包 ----
+# Package ----
 library(openxlsx)
 library(dplyr)
 library(tidyr)
@@ -11,36 +11,36 @@ library(patchwork)
 library(vegan)
 library(dunn.test)
 
-# 函数 ----
-# 函数：基于每木数据获得群落宽数据
-# 输出：群落款数据，列为物种名，每行为每棵树木
-# 参数：
-# x：调查所得每木数据
-# nq_colgroup：汇总所根据的分组
-GetComm <- function(x, nq_colgroup) {
+# Function ----
+# function: get community data based on individual data
+# note: output is wide data of community - rows as species and columns as number of trees
+# variable: 
+# x: investigation data of each tree
+# col.group: column name group based on, without quotation marks
+GetComm <- function(x, col.group) {
   x %>% 
     mutate(stem = 1) %>%  # 每棵树的丰度即为1
-    select({{nq_colgroup}}, stem, species) %>%
+    select({{col.group}}, stem, species) %>%
     pivot_wider(names_from = species, values_from = stem,
                 values_fn = sum, values_fill = 0) %>% 
     return()
 }
 
-# 函数：基于个体数据计算样地多样性
-# 参数：
-# x：调查所得个体数据
-# x_comm：群落数据
-# nq_colgroup：汇总所根据的分组
-GetDiv <- function(x, x_comm, nq_colgroup) {
-  # 内置函数：分组汇总统计各项属性
+# function: get biodiversity indexes based on individual data 
+# variable: 
+# x: investigation data of each tree
+# x_comm: community data, you can get it with GetComm()
+# col.group: column name group based on, without quotation marks
+GetDiv <- function(x, x_comm, col.group) {
+  # inside function: summary each attribute 
   funin_attrcalc <- function(coltar, tarvalue) {
     x_sub <- x
     x_sub["tarornot"] <- x_sub[coltar] == tarvalue
-    x_sub <- x_sub %>% group_by({{nq_colgroup}}) %>% 
+    x_sub <- x_sub %>% group_by({{col.group}}) %>% 
       summarise(
         perc = sum(1 * tarornot) / sum(1)) %>%
       ungroup() %>% 
-      select({{nq_colgroup}}, perc)
+      select({{col.group}}, perc)
     names(x_sub)[2] <- paste0("perc_", tarvalue)
     return(x_sub)
   }
@@ -51,18 +51,18 @@ GetDiv <- function(x, x_comm, nq_colgroup) {
            shannon = diversity(.[2:ncol(.)], index = "shannon"),
            simpson = diversity(.[2:ncol(.)], index = "simpson"),
            evenness = shannon / log(richness)) %>%
-    select({{nq_colgroup}}, 
+    select({{col.group}}, 
            abundance, richness, shannon, simpson, evenness)
   
   return(output)
 }
 
-# 数据 ----
-#. 常数 ----
-# 美元和日元的汇率：取2019年平均汇率
+# Data ----
+## Constant ----
+# rate of Japanese Yen and US dollar: average rate of 2019
 kUsdJpy <- 109
 
-# 生态系统服务项目
+# ecosystem service items 
 kES <- 
   c("carbon_storage", "carbon_seq", 
     "no2_removal", "o3_removal", "pm25_removal", "so2_removal", "avo_runoff")
@@ -70,49 +70,58 @@ kESV <-
   c("carbon_storage_value", "carbon_seq_value", 
     "no2_value", "o3_value", "pm25_value", "so2_value", "avo_runoff_value")
 
-# 土地利用类型
+# land use type
 kLanduse <- 
   c("R-low", "R-high", "R-other", "Ind", "Com-neigh", "Com")
 
-# 多样性指数
+# biodiversity indexes
 kIndex <- 
   c("abundance", "richness", "shannon", "simpson", "evenness")
 
-#. 样地信息 ----
+## Quadrat info ----
 qua.info <- read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>% 
   rename_with(tolower) %>% 
   rename(kes_qua_id = kes_plot_id, ward = ward_en) %>% 
   select(qua_id, kes_qua_id, landuse_class, ward) %>% 
   rename(landuse = landuse_class) %>% 
-  tibble()
+  tibble() %>% 
+  # change names of land use column
+  mutate(land_use = case_when(
+    land_use == "Com" ~ "Com", 
+    land_use == "Com neigh" ~ "ComNbr", 
+    land_use == "Ind" ~ "Ind", 
+    land_use == "R high" ~ "ResHigh", 
+    land_use == "R low" ~ "ResLow", 
+    land_use == "R resi" ~ "ResOther", 
+  ))
 
-# 读取调查数据
+# investigation data 
 tree.data <- read.csv("RRawData/Plant_data.csv") %>% 
   tibble() %>% rename_with(tolower) %>% 
   rename(species = species_lt) %>% 
   subset(tree_shrub == "tree") %>% 
   select(plot_id, species) %>% 
-  # 加入土地利用数据
+  # join land use data 
   left_join(qua.info, by = c("plot_id" = "qua_id"))
 
-#. i-Tree输入数据 ----
-# 原始数据来自平林
+## i-Tree input data ----
+# the raw data comes from Hirabayashi
 itree.input <- read.csv("RRawData/i_tree_input.csv") %>% 
   rename(res_tree_id = ID, 
          kes_qua_id = PlotId) %>% 
   select(kes_qua_id, res_tree_id) %>% 
   as_tibble()
 
-#. 物种对照名单 ----
+## Species list ----
 spe.ls <- read.csv("RRawData/I_tree_species_list.csv") %>% 
   as_tibble() %>% 
   rename_with(tolower) %>% 
   rename(spe_code = "sppcode", 
          species_name = "species.name") %>% 
   mutate(species = paste0(genus, " ", species_name)) %>% 
-  # 去除重复的条目
+  # eliminate the duplicated 
   unique() %>% 
-  # 加入所属科属数据
+  # join taxon family data 
   left_join(read.csv("RRawData/Plant_info.csv") %>% 
               rename_with(tolower) %>% 
               select(genus, family) %>% 
@@ -128,20 +137,20 @@ tree.data.top <-
   ungroup() %>% 
   arrange(landuse, n) %>% 
   mutate(landuse = factor(landuse, levels = kLanduse))
-# 计算各土地利用中的树木数量
+# tree number of each land use
 tree.data.treenum <- 
   tree.data %>% 
   group_by(landuse) %>% 
   summarise(treenum = n()) %>% 
   ungroup()
-# 将各类土地利用树木数量加入top树种的数据中，并且计算top树种所占比例
+# join total tree number and calculate the proportion
 tree.data.top <- 
   tree.data.top %>% 
   left_join(tree.data.treenum, by = "landuse") %>% 
   mutate(prop = n / treenum)
 
-#. 每木数据 ----
-# 原始数据来自平林的Access数据库
+## Individual tree data ----
+# raw data from Access database from Hirabayashi 
 indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>% 
   as_tibble() %>% 
   rename(res_tree_id = "TreeID", 
@@ -164,13 +173,12 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          avo_runoff = "Avoided.Runoff.(m3)") %>% 
   left_join(itree.input, by = "res_tree_id") %>% 
   mutate(
-    # 转化为美元
+    # turn monetary value from Japanese Yen to US dollar
     compensatory_value = compensatory_value / kUsdJpy,  
-    # 计算碳储存货币价值并转化为美元：
-    # 日本碳服务价值为10600日元/吨碳，即10.6日元/千克碳
+    # calculate carbon monetary value and turn to US dollar: the carbon price in Japan is 10600 JPY/ton carbon = 10.6 JPY/kg carbon
     carbon_storage_value = 10.6 * carbon_storage / kUsdJpy,
     carbon_seq_value = 10.6 * carbon_seq / kUsdJpy, 
-    # 计算雨水截留货币价值并转化为美元：日本雨水截留价值为719日元/立方米雨水
+    # calculate runoff reduction value and turn to US dollars: runoff reduction value in Japan is 719 JPY/cubic meter rainwater
     avo_runoff_value = 719 * avo_runoff / kUsdJpy
   ) %>% 
   left_join(spe.ls, by = "spe_code") %>% 
@@ -185,14 +193,14 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          no2_value, o3_value, pm25_value, so2_value,  
          avo_runoff_value)
 
-#. 群落和多样性 ----
+## Community data and biodiversity ----
 qua.comm <- GetComm(indv.data, qua_id)
 qua.div <- GetDiv(indv.data, qua.comm, qua_id) %>% 
-  # 加入土地利用数据
+  # left join land use data 
   left_join(qua.info, by = "qua_id")
 
-#. 样方水平服务量 ----
-# 将个体水平数据汇总为样方水平数据
+## Quadrat ecosystem services ----
+# aggregate individual data to quadrat data 
 qua.es <- indv.data %>% 
   select(qua_id, 
          carbon_storage, carbon_seq, 
@@ -207,8 +215,8 @@ qua.es <- indv.data %>%
             treenum = n()) %>% 
   ungroup()
 
-#. 各项服务单价 ----
-# 基于样方生态系统服务结果计算各项服务单价
+## Ecosystem services unit price ----
+# calculate quadrat ecosystem services unit price based on quadrat data
 price <- vector("numeric", length = length(kES))
 
 # 各项单价为所有样方对应服务货币量和物理量之商的平均值
@@ -217,24 +225,24 @@ for (i in 1:length(kES)) {
     mean()
 }
 
-# 转换成数据框并输出
+# turn to data.frame
 price <- data.frame(
   service = kES, 
   price = price, 
   # 各服务单价对应单位
-  unit = c("美元/千克碳", "美元/千克碳", 
-           "美元/克", "美元/克", "美元/克", "美元/克", 
-           "美元/立方米雨水")
+  unit = c("dollar/kg carbon", "dolar/kg carbon", 
+           "dollar/g", "dollar/g", "dollar/g", "dollar/g", 
+           "dollar/cubic meter water")
 )
 
-# 分析 ----
-#. 统计描述 ----
-# 科属种数量
+# Analysis ----
+## Description ----
+# number of species and families 
 cat("\n", "total species:", length(unique(indv.data$species)), "\n", 
     "total genera:", length(unique(indv.data$genus)), "\n", 
     "total families:", length(unique(indv.data$family)), "\n", "\n")
 
-# 丰度占比较大的科
+# top abundant families 
 indv.data %>% 
   group_by(family) %>% 
   summarise(num_tree = n(), prop = n()/nrow(indv.data)) %>% 
@@ -275,8 +283,8 @@ for (i in 1:6) {
 Reduce("|", temp.plots[1:3]) / 
   Reduce("|", temp.plots[4:6])
 
-#. 样地多样性~土地利用类型 ----
-png("RProcData/不同土地利用下的样方多样性指数.png", 
+## Quadrat biodiversity ~ land use ----
+png("RProcData/Quadrat_biodiversity_indexes_of_land_use_types.png", 
     width = 1200, height = 2000, res = 300)
 qua.div %>% 
   pivot_longer(cols = c("richness", "shannon", "simpson", "evenness"), 
@@ -305,7 +313,7 @@ for (i in kIndex) {
   dunn.test(x = qua.div[[i]], g = qua.div$landuse)
 }
 
-# 各样地多样性和ES关系
+# correlation between quadrat biodiversity and ecosystem services 
 qua.div.es <- qua.div %>% 
   left_join(qua.es, by = "qua_id")
 
@@ -313,14 +321,14 @@ qua.div.es.cor <-
   psych::corr.test(
     select(qua.div.es, abundance, richness, shannon, all_of(kES))
   )
-png("RProcData/样地水平多样性和ES之间的相关性.png", 
+png("RProcData/Cor_between_quadrat_biodiversity_and_ecosystem_services.png", 
     width = 2000, height = 2000, res = 300)
 (corrplot::corrplot(
   corr = qua.div.es.cor$r, method = "number", p.mat = qua.div.es.cor$p
 ))
 dev.off()
 
-# 导出 ----
+# Export ----
 write.xlsx(qua.es, "GRawData/R_Qua_es.xlsx")
-write.xlsx(price, "RProcData/各项服务单价.xlsx")
-write.xlsx(qua.div, "RProcData/各样地乔木多样性.xlsx")
+write.xlsx(price, "RProcData/Unit_price_of_ecosystem_services.xlsx")
+write.xlsx(qua.div, "RProcData/Biodiversity_of_each_quadrat.xlsx")
