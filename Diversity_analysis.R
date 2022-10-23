@@ -194,8 +194,8 @@ indv.data <- read.xlsx("RRawData/Trees.xlsx", sheet = "Trees") %>%
          avo_runoff_value)
 
 ## Community data and biodiversity ----
-qua.comm <- GetComm(indv.data, qua_id)
-qua.div <- GetDiv(indv.data, qua.comm, qua_id) %>% 
+qua.div <- GetComm(indv.data, qua_id) %>% 
+  GetDiv(x = indv.data, x_comm = ., col.group = qua_id) %>% 
   # left join land use data 
   left_join(qua.info, by = "qua_id")
 
