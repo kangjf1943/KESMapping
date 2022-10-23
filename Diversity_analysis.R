@@ -354,13 +354,14 @@ for (i in kIndex) {
   dunn.test(x = qua.div[[i]], g = qua.div$landuse)
 }
 
+## Quadrat biodiversity ~ ES ----
 # correlation between quadrat biodiversity and ecosystem services 
 qua.div.es <- qua.div %>% 
   left_join(qua.es, by = "qua_id")
 
 qua.div.es.cor <- 
   psych::corr.test(
-    select(qua.div.es, abundance, richness, shannon, all_of(kES))
+    select(qua.div.es, all_of(kIndex), all_of(kES))
   )
 png("RProcData/Cor_between_quadrat_biodiversity_and_ecosystem_services.png", 
     width = 2000, height = 2000, res = 300)
