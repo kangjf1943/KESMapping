@@ -7,6 +7,7 @@ library(openxlsx)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
+library(patchwork)
 library(vegan)
 library(dunn.test)
 
@@ -75,7 +76,7 @@ kLanduse <-
 
 # 多样性指数
 kIndex <- 
-  c("richness", "shannon", "simpson", "evenness")
+  c("abundance", "richness", "shannon", "simpson", "evenness")
 
 #. 样地信息 ----
 qua.info <- read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>% 
@@ -84,6 +85,15 @@ qua.info <- read.xlsx("RRawData/KUP_Plot_info.xlsx", sheet = "样方信息") %>%
   select(qua_id, kes_qua_id, landuse_class, ward) %>% 
   rename(landuse = landuse_class) %>% 
   tibble()
+
+# 读取调查数据
+tree.data <- read.csv("RRawData/Plant_data.csv") %>% 
+  tibble() %>% rename_with(tolower) %>% 
+  rename(species = species_lt) %>% 
+  subset(tree_shrub == "tree") %>% 
+  select(plot_id, species) %>% 
+  # 加入土地利用数据
+  left_join(qua.info, by = c("plot_id" = "qua_id"))
 
 #. i-Tree输入数据 ----
 # 原始数据来自平林
@@ -109,6 +119,26 @@ spe.ls <- read.csv("RRawData/I_tree_species_list.csv") %>%
               unique(), 
             by = "genus") %>% 
   select(spe_code, species, genus, family)
+
+# top species of each land use by abundance 
+tree.data.top <- 
+  tree.data %>% 
+  group_by(landuse, species) %>% 
+  summarise(n = n()) %>% 
+  ungroup() %>% 
+  arrange(landuse, n) %>% 
+  mutate(landuse = factor(landuse, levels = kLanduse))
+# 计算各土地利用中的树木数量
+tree.data.treenum <- 
+  tree.data %>% 
+  group_by(landuse) %>% 
+  summarise(treenum = n()) %>% 
+  ungroup()
+# 将各类土地利用树木数量加入top树种的数据中，并且计算top树种所占比例
+tree.data.top <- 
+  tree.data.top %>% 
+  left_join(tree.data.treenum, by = "landuse") %>% 
+  mutate(prop = n / treenum)
 
 #. 每木数据 ----
 # 原始数据来自平林的Access数据库
@@ -208,7 +238,42 @@ cat("\n", "total species:", length(unique(indv.data$species)), "\n",
 indv.data %>% 
   group_by(family) %>% 
   summarise(num_tree = n(), prop = n()/nrow(indv.data)) %>% 
-  arrange(desc(prop))
+  arrange(desc(prop)) %>% 
+  head(10) %>% 
+  mutate(family = factor(family, levels = .$family)) %>% 
+  ggplot() + 
+  geom_bar(aes(family, prop), stat = "identity")
+
+#. Top species ----
+# top species of the whole city
+tree.data %>% group_by(species) %>% 
+  summarise(n = n()) %>% 
+  ungroup() %>% 
+  arrange(n) %>% 
+  tail(10) %>% 
+  mutate(species = factor(.$species, levels = .$species)) %>% 
+  ggplot() + 
+  geom_bar(aes(species, x = n), stat = "identity")
+
+# top species by land use
+temp.plots <- vector("list", 6)
+names(temp.plots) <- kLanduse
+for (i in kLanduse) {
+  temp.plots[[i]] <- tree.data.top %>% 
+    subset(landuse == i) %>% 
+    tail(10) %>% 
+    mutate(species = factor(.$species, levels = .$species)) %>% 
+    ggplot() + 
+    geom_bar(aes(species, x = prop), stat = "identity") +
+    labs(x = "Relative abundance", y = "Species") + 
+    xlim(0, 0.6) 
+}
+for (i in 1:6) {
+  temp.plots[[i]] <- temp.plots[[i]] + 
+    ggtitle(paste0("(", letters[i], ")"))
+}
+Reduce("|", temp.plots[1:3]) / 
+  Reduce("|", temp.plots[4:6])
 
 #. 样地多样性~土地利用类型 ----
 png("RProcData/不同土地利用下的样方多样性指数.png", 
