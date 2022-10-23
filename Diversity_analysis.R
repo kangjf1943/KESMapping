@@ -57,6 +57,37 @@ GetDiv <- function(x, x_comm, col.group) {
   return(output)
 }
 
+# function: get p values for quadrat diversity indexts against land use
+# variable: 
+# x: quadrat biodiversity data with biodiversity indexes columns and land use column, names of which in certain format 
+GetP4Box <- function(x) {
+  # vector to store p values 
+  pvalue <- numeric()
+  # calculate p value for each biodiversity index 
+  for (i in kIndex) {
+    pvalue <- c(
+      pvalue, 
+      round(kruskal.test(x[[i]] ~ x$landuse)$p.value,digits = 3)
+    )
+  }
+  # build the result
+  tibble(
+    index = kIndex, 
+    pvalue = pvalue
+  ) %>% 
+    mutate(label = case_when(
+      pvalue >= 0.05 ~ 
+        paste("p=", sprintf("%.3f",pvalue), sep = ""), 
+      pvalue < 0.05 & pvalue >= 0.01 ~ 
+        paste("p=", sprintf("%.3f",pvalue), "*", sep = ""), 
+      pvalue < 0.01 & pvalue >= 0.001 ~ 
+        paste("p=", sprintf("%.3f",pvalue), "**", sep = ""),
+      pvalue < 0.001 ~ 
+        paste("p=", sprintf("%.3f",pvalue), "***", sep = "")
+    )) %>% 
+    return()
+}
+
 # Data ----
 ## Constant ----
 # rate of Japanese Yen and US dollar: average rate of 2019
@@ -290,10 +321,11 @@ Reduce("|", temp.plots[1:3]) /
 dev.off()
 
 ## Quadrat biodiversity ~ land use ----
+# bug: need to change the title of facet strip into first letter capitalization
 png("RProcData/Quadrat_biodiversity_indexes_of_land_use_types.png", 
     width = 1200, height = 2000, res = 300)
 qua.div %>% 
-  pivot_longer(cols = c("richness", "shannon", "simpson", "evenness"), 
+  pivot_longer(cols = kIndex, 
                names_to = "index", values_to = "index_value") %>% 
   mutate(landuse = factor(landuse, levels = kLanduse), 
          index = factor(index, levels = kIndex)) %>% 
@@ -302,13 +334,16 @@ qua.div %>%
   labs(x = "Land use type", y = "Quadrat biodiversity index") + 
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.3))) +
   theme_bw() + 
-  facet_wrap(.~ index, ncol = 1, scales = "free_y", 
+  facet_wrap(.~ factor(index, levels = kIndex), 
+             ncol = 1, scales = "free_y", 
              labeller = labeller(
-               index = c(richness = "Richness", 
+               index = c(abundance = "Abundance", 
+                         richness = "Richness", 
                          shannon = "Shannon", 
                          simpson = "Simpson", 
                          evenness = "Evenness"))) + 
-  geom_text(data = GetP(qua.div), aes(x =Inf, y = Inf, label = label), 
+  geom_text(data = GetP4Box(qua.div), 
+            aes(x =Inf, y = Inf, label = label), 
             size=3.5, hjust = 1.05, vjust = 1.5)
 dev.off()
 
