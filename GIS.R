@@ -21,7 +21,7 @@ kNameEs <- c("CS", "CSE", "NO2", "O3", "PM2.5", "SO2", "ROF")
 ebk <- vector("list", 7)
 names(ebk) <- kNameEs
 for (i in kNameEs) {
-  ebk[[i]] <- rast(paste0("GProcData/EBK/", i, ".tif"))
+  ebk[[i]] <- rast(paste0("GProcData/InterpRes/EBK/", i, ".tif"))
 }
 
 # land use *.shp data 
