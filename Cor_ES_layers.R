@@ -29,6 +29,6 @@ ggplot() +
   geom_point(aes(park$grid_code, esv$grid_code), alpha = 0.3) + 
   geom_smooth(aes(park$grid_code, esv$grid_code), 
               method = "lm", color = "red") + 
-  labs(x = "Park density", y = "ESV")
+  labs(x = "Park density", y = "ESV (dollar/ha)")
 cor.test(park$grid_code, esv$grid_code)
 
