@@ -10,7 +10,13 @@ land.use %>%
 1009 * 6525.90489592793
 
 # 问题在于，我计算出来的平均值和谢的平均值不同
-# 先写个计算特定土地利用特定ES平均值的函数
+# 为了可视化过程，先写个提取特定土地利用的特定CS图层
+GetTifLanduse <- function(x, es) {
+  outline <- subset(land.use, land_use == x) %>% 
+    st_transform(crs(ebk[[es]]))
+  mask(ebk[[es]], outline)
+}
+# 再写个计算特定土地利用特定ES平均值的函数
 GetMeanLanduse <- function(x, es) {
   outline <- subset(land.use, land_use == x) %>% 
     st_transform(crs(ebk[[es]]))
@@ -19,7 +25,11 @@ GetMeanLanduse <- function(x, es) {
     .[1, 1] %>% 
     return()
 }
+
 # 比如碳储存
+# 提取ResLow的CS图层
+GetTifLanduse("ResLow", "CS") %>% 
+  plot()
 # 计算出来的单位应该是千克/样方，因此将其转化为千克碳/公顷：
 GetMeanLanduse("ResLow", "CS") / 400 * 10000
 # 而谢于松为7698
