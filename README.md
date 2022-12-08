@@ -12,7 +12,7 @@ Interpolation results of each ES by EBK interpolation method created by Xie.
 **ESVEBK Folder**
 ESV estimation results based on ES results of EBK and per unite price of each ES, created by Xie using GIS. 
 
-**InterRes Folder **
+**InterRes Folder**
 Interpolation results of each ES by each interpolation method in *.tif format, created by Xie using GIS. 
 
 **LandUse Folder**
