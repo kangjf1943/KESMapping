@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="zh"><Esri><CreaDate>20221206</CreaDate><CreaTime>11160400</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce></Esri><ga><model name="EmpiricalBayesianKriging"><dataset Label="数据集" ParamName="dataset1" dataset-type="DSA-X0"/><enum name="KrigingResultType">Prediction</enum><enum name="TransformationType">EBKTransformation_Empirical</enum><enum name="SemivariogramModelType">EBKSemivariogramModel_Whittle_Detrended</enum><value name="VariogramSize">125</value><value name="Overlapping">1</value><value name="Simulation">680</value><model name="NeighbourSearch"><enum name="Type">Standard-NOSectors-NOEllipse</enum><value name="NeighboursMax" auto="false">30</value><value name="NeighboursMin" auto="false">6</value><value name="MajorSemiaxis" auto="false">0.03</value></model>
+		</model>
+	</ga></metadata>
