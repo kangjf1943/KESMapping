@@ -6,28 +6,22 @@ The code is used for the KESMapping (Kyoto Ecosystem Services Mapping) project.
 
 All the raw data are stored in RawData Folder. 
 
-### ESEBK Folder
-
+**ESEBK Folder**
 Interpolation results of each ES by EBK interpolation method created by Xie. 
 
-### ESVEBK Folder
-
+**ESVEBK Folder**
 ESV estimation results based on ES results of EBK and per unite price of each ES, created by Xie using GIS. 
 
-### InterRes Folder 
-
+**InterRes Folder **
 Interpolation results of each ES by each interpolation method in *.tif format, created by Xie using GIS. 
 
-### LandUse Folder
-
+**LandUse Folder**
 GIS layer of land use of Kyoto City built-up area, download from Ministry of Land, Infrastructure, Transport and Tourism, Japan. 
 
-### SampleQuadrat
-
+**SampleQuadrat Folder**
 GIS layer of sample quadrat for plant investigation. 
 
-### Validation
-
+**Validation Folder**
 Interpolation results of the investigated quadrat in GIS point format, showing the ES estimation based on investigation data and that of interpolation. This data is used for model validation, to pick out the best interpolation method with lowest errors. The fields of the *.shp files are: 
 
 `Measured`: the ES estimation based on investigation data and i-Tree Eco. 
