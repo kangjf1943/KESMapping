@@ -23,6 +23,12 @@ library(tmap)
 library(vegan)
 library(dunn.test)
 
+# Setting ----
+install_unit("yen")
+install_unit("dollar", "109 yen")
+install_unit("million dollar", "10^6 dollar")
+install_unit("quadrat", "400 m2")
+
 # Function ----
 # function: get total certain ESV of all land use types
 # note: extract ES interpolation results based on land use *.shp data, then calculate the sum of ES of the extracted data 
