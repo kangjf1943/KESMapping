@@ -26,7 +26,6 @@ library(dunn.test)
 # Setting ----
 install_unit("yen")
 install_unit("dollar", "109 yen")
-install_unit("million dollar", "10^6 dollar")
 install_unit("quadrat", "400 m2")
 
 # Function ----
