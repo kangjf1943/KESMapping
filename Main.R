@@ -329,7 +329,7 @@ st_write(qua.data, "ProcData/Qua_es.shp")
 # bug: need to indicate what data should be obtained from Xie's operation 
 
 ### Interpolation validation ----
-val.res <- 
+val.base <- 
   # get all *.dbf and bind them into data.frame
   do.call(
     rbind, 
@@ -350,7 +350,9 @@ val.res <-
     abs_diff_rate = abs_diff / measured, 
     abs_diff_sqr = abs_diff ^ 2, 
     abs_diff_rate_sqr = abs_diff_rate ^ 2
-  ) %>% 
+  )
+val.res <- 
+  val.base %>% 
   # calculate validation errors
   group_by(intrpl, es) %>% 
   summarise(
