@@ -1,0 +1,171 @@
+---
+title: "分析结果附件"
+author: "Kang"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## 1 概述
+
+内部改稿，我这里主要工作包括：
+(1) 出不同土地利用下的ESV图表；
+(2) 不同土地利用下树木各属性的均值或中位数；
+(3) 修改树木属性计算部分的方法和结果；
+(4) 回复平林关于绝对误差的评论
+
+## 2 方法和结果
+
+### 2.1 不同土地利用下的ESV
+
+不同土地利用下的ES比较。原稿的图有误（这个我们讨论过），所以我重新计算并作图了：
+
+```{r}
+lu.data %>% 
+  select(landuse, all_of(kES$esv)) %>% 
+  pivot_longer(cols = all_of(kES$esv), names_to = "esv", values_to = "val") %>% 
+  left_join(kES, by = "esv") %>% 
+  mutate(abbr = factor(abbr, levels = kES$abbr), 
+         val = drop_units(val)) %>% 
+  ggplot() + 
+  geom_bar(aes(landuse, val / 10^6, fill = abbr), 
+           stat = "identity", position = "stack") + 
+  labs(x = "Land use", y = "ESV (million dollar)") + 
+  scale_fill_discrete(name = NULL) + 
+  theme_bw()
+```
+
+对应数值为：
+
+```{r}
+lu.data %>% 
+  knitr::kable()
+```
+
+### 2.2 不同土地利用下的树木属性
+
+从整个城市整体数据来看，概况：
+
+```{r}
+cat("\n", "total species:", length(unique(indv.data$species)), "\n", 
+    "total genera:", length(unique(indv.data$genus)), "\n", 
+    "total families:", length(unique(indv.data$family)), "\n", "\n")
+```
+
+然后分土地利用进行对比，这里的树木属性包括树木大小、树木多少、生物多样性，相关解释见Word文档。
+
+```{r pressure, echo=FALSE}
+lu.data %>% 
+  drop_units() %>% 
+  select(landuse, richness, density, dbh_mean, dbh_mid, 
+         height_mean, height_mid, lai_mean, lai_mid) %>% 
+  pivot_longer(cols = -landuse, names_to = "attr", values_to = "val") %>% 
+  ggplot() + 
+  geom_bar(aes(landuse, val), stat = "identity") + 
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(.~ attr, scales = "free")
+```
+
+### 2.3 修改树木属性部分正文
+
+见稿件。主要修改了：树木属性计算方法描述，替代原本的生物多样性计算内容；ES计算正文部分简化和重构；以上两部分的相关结果。
+
+### 2.4 回复平林绝对误差评论
+
+绝对误差（absolute error）即预测值和实测值之间的差值的绝对值，计算了各插值方法各类ES的结果的绝对误差，表格太长，这里只给出EBK下CS的绝对误差的前几行（总共有151行）：
+
+```{r}
+val.base %>% 
+  subset(intrpl == "EBK") %>% 
+  select(es, abs_diff) %>% 
+  mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+  pivot_wider(id_cols = "rowid", 
+              names_from = "es", values_from = "abs_diff") %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+对于每种插值方法下的每种ES，可以做绝对误差的分布图，以EBK为例：
+
+```{r}
+val.base %>% 
+  subset(intrpl == "EBK") %>% 
+  select(es, abs_diff) %>% 
+  mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+  ggplot() + 
+  geom_density(aes(abs_diff)) + 
+  facet_wrap(. ~ es, scales = "free")
+```
+
+这样我们就可以比较不同插值方法下各ES的绝对误差的差异，为了看得清楚些，我对横轴做了指数变换：
+
+```{r}
+val.base %>% 
+  select(intrpl, es, abs_diff) %>% 
+  mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+  ggplot() + 
+  geom_density(aes(log(abs_diff), col = intrpl)) + 
+  facet_wrap(. ~ es, scales = "free")
+```
+
+可以看出，其实几个方法的绝对误差差异并不大，EBK的曲线分布更狭窄一些。我们可以通过箱型图进一步看几个方法分位数统计值和分布的差异，同样地，为了显示更清楚，我对纵轴做了指数变换：
+
+```{r}
+val.base %>% 
+  select(intrpl, es, abs_diff) %>% 
+  mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+  ggplot() + 
+  geom_boxplot(aes(intrpl, log(abs_diff))) + 
+  facet_wrap(. ~ es, scales = "free")
+```
+
+这个就很微妙了……EBK并不比其他方法好，但是这个是总体情况，如果做配对比较的话可能会不一样，我再考虑一下。
+不如把每个点拎出来，看看其他方法的绝对误差相比于EBK的是否更大。在这个思路下，计算对于每个样点而言，其他方法各种ES的绝对误差相对于EBK的差值，并可视化。
+
+```{r}
+left_join(
+  val.base %>% 
+    mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+    subset(intrpl != "EBK") %>% 
+    rename(intrpl_oth = intrpl, ad_oth = abs_diff) %>% 
+    select(rowid, intrpl_oth, es, ad_oth), 
+  val.base %>% 
+    mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+    subset(intrpl == "EBK") %>% 
+    rename(intrpl_ebk = intrpl, ad_ebk = abs_diff) %>% 
+    select(rowid, intrpl_ebk, es, ad_ebk), 
+  by = c("rowid", "es")
+) %>% 
+  mutate(ad_diff = ad_oth - ad_ebk) %>% 
+  ggplot() + 
+  geom_density(aes(ad_diff, col = intrpl_oth)) + 
+  facet_wrap(.~ es, scales = "free")
+```
+
+好吧，其实差异还是很小，大部分差异都集中在0附近（如果一个绝对误差的差值为0，就说明两种方法在在这个样点上的表现相同；如果大于0，说明EBK的绝对误差更小，也就是说表现更好。理想情况下，如果EBK在大部分样点上的表现都更好，这个图中的各曲线应该要往右偏才对）。盒形图的结果也是如此，基本上中位数就集中在0左右。
+
+```{r}
+left_join(
+  val.base %>% 
+    mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+    subset(intrpl != "EBK") %>% 
+    rename(intrpl_oth = intrpl, ad_oth = abs_diff) %>% 
+    select(rowid, intrpl_oth, es, ad_oth), 
+  val.base %>% 
+    mutate(rowid = rep_len(1:151, length.out = nrow(.))) %>% 
+    subset(intrpl == "EBK") %>% 
+    rename(intrpl_ebk = intrpl, ad_ebk = abs_diff) %>% 
+    select(rowid, intrpl_ebk, es, ad_ebk), 
+  by = c("rowid", "es")
+) %>% 
+  mutate(ad_diff = ad_oth - ad_ebk) %>% 
+  ggplot() + 
+  geom_boxplot(aes(intrpl_oth, ad_diff)) + 
+  facet_wrap(.~ es, scales = "free")
+```
+
+就把后面这个绝对误差配对差值的结果回复给平林吧，大意是：
+从绝对误差来看，几种方法的差异比较微妙，只能根据MAE和RMSE的结果来选出最佳差值方法（支持数据为原文的corss-validation结果的表）。并且，说明为何只计算MAE和RMSE，而不计算绝对误差。
