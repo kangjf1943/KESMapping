@@ -429,6 +429,32 @@ indv.data %>%
   geom_col(aes(reorder(family, prop), prop)) + 
   coord_flip()
 
+# top abundant species of each land use
+png("ProcData/Top species of each land use.png", 
+    width = 3000, height = 1200, res = 300)
+lu.top.species <- indv.data %>% 
+  group_by(landuse, species) %>% 
+  summarise(abundance = n()) %>% 
+  group_by(landuse) %>% 
+  mutate(rel_abundance = abundance / sum(abundance)) %>% 
+  slice_max(order_by = rel_abundance, n = 10) %>% 
+  # since some species have equal relative abundance, the "top 10" species list might be of a size larger than 10, so I further slice the data by head 10 species
+  slice_head(n = 10) %>% 
+  ungroup() %>% 
+  mutate(landuse = factor(landuse, levels = kLanduse)) %>% 
+  arrange(landuse, rel_abundance) %>% 
+  mutate(rowid = row_number())
+(lu.top.species %>% 
+  ggplot() + 
+  geom_col(aes(x = rowid, y = rel_abundance)) + 
+  scale_x_continuous(breaks = a$rowid, labels = a$species) + 
+  lims(y = c(0, 0.6)) + 
+  labs(x = "Species", y = "Relative Abundance") + 
+  coord_flip() + 
+  theme(axis.text.y = element_text(face = "italic")) + 
+  facet_wrap(.~ landuse, scales = "free"))
+dev.off()
+
 # tree attribute of each land use
 lu.data %>% 
   drop_units() %>% 
