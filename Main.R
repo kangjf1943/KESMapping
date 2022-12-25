@@ -409,8 +409,14 @@ lu.data %>%
   ggplot() + 
   geom_bar(aes(landuse, val / 10^6, fill = abbr), 
            stat = "identity", position = "stack") + 
-  labs(x = "Land use", y = "ESV (million dollar)") + 
-  scale_fill_discrete(name = NULL) + 
+  labs(x = "", y = "Total ESV (million dollar)") + 
+  scale_fill_discrete(
+    name = NULL, 
+    limits = c("CS", "CSE", "NO2", "O3", "PM2.5", "SO2", "RR"), 
+    labels = c("CS", "CSE", 
+               bquote(NO[2]), bquote(O[3]), bquote(PM[2.5]), bquote(SO[2]), 
+               "RR")
+  ) + 
   theme_bw()
 
 # one reason for total ESV of each land use - area
