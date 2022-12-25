@@ -413,6 +413,15 @@ lu.data %>%
   scale_fill_discrete(name = NULL) + 
   theme_bw()
 
+# one reason for total ESV of each land use - area
+land.use %>% 
+  st_drop_geometry() %>% 
+  group_by(land_use) %>% 
+  summarise(area = sum(Area)) %>% 
+  ungroup() %>% 
+  ggplot() + 
+  geom_col(aes(factor(land_use, levels = kLanduse), area))
+
 ### Tree attributes of land use ----
 # number of species and families 
 cat("\n", "total species:", length(unique(indv.data$species)), "\n", 
