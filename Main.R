@@ -78,7 +78,7 @@ kES <- data.frame(
 
 # land use type
 kLanduse <- 
-  c("ResLow", "ResHigh", "ResOther", "Ind", "Com", "ComNbr")
+  c("ResLow", "ResHigh", "ResOther", "Ind", "ComNbr", "Com")
 
 ## Quadrat information ----
 qua.info <- 
@@ -404,7 +404,8 @@ lu.data %>%
   pivot_longer(cols = all_of(kES$esv), names_to = "esv", values_to = "val") %>% 
   left_join(kES, by = "esv") %>% 
   mutate(abbr = factor(abbr, levels = kES$abbr), 
-         val = drop_units(val)) %>% 
+         val = drop_units(val), 
+         landuse = factor(landuse, levels = kLanduse)) %>% 
   ggplot() + 
   geom_bar(aes(landuse, val / 10^6, fill = abbr), 
            stat = "identity", position = "stack") + 
@@ -447,7 +448,9 @@ lu.top.species <- indv.data %>%
 (lu.top.species %>% 
   ggplot() + 
   geom_col(aes(x = rowid, y = rel_abundance)) + 
-  scale_x_continuous(breaks = a$rowid, labels = a$species) + 
+  scale_x_continuous(
+    breaks = lu.top.species$rowid, labels = lu.top.species$species
+  ) + 
   lims(y = c(0, 0.6)) + 
   labs(x = "Species", y = "Relative Abundance") + 
   coord_flip() + 
